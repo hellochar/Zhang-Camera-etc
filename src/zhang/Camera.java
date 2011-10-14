@@ -39,51 +39,93 @@ public class Camera implements PConstants {
      * The PApplet that this camera lives in. This affects the scale() and apply() methods.
      */
     private final PApplet applet;
+    /**
+     * The MultiKeyListener that holds what keys are being pressed.
+     */
     private MultiKeyListener kl;
+    /**
+     * The MouseWheelListener to listen for mouse wheel scrolls.
+     */
     private MouseWheelListener mwl;
     /**
      * These values should not be changed; they are public for easy reading.
      */
     public final PVector screen, halfScreen;
 
+
+    //============================ BEGIN UI CONTROLS ====================================
+    /**
+     * UI options relating to how much the Camera should react to user input. May get deprecated and moved to a separate class later on.
+     */
     protected float uiMoveSpeed, uiZoomAmount;
-    protected boolean uiAuto = true, uiWasd = true, uiArrows = true, uiPlusMinus = true;
+    /**
+     * UI flags denoting whether the Camera should respond to various user inputs. 
+     */
+    protected boolean uiWasd = true, uiArrows = true, uiPlusMinus = true, uiScrollWheel = true;
+    /**
+     * The ui flag is as a catch-all for all UI input methods - if ui is false, no input will affect the Camera.
+     */
+    protected boolean ui = true;
+
+    /**
+     * The net units the scroll wheel has moved since the last uiHandle() call. This variable gets updated by a MouseWheelHandler and then read and reset by uiHandle.
+     * This value is protected so that subclasses may control how the UI responds to scroll wheel zooming (e.g. by negating the number, the zoom directions are reversed)
+     */
+    protected float scrollAmount = 0;
+    /**
+     * A flag denoting whether the Camera should automatically apply its transform to the PApplet.
+     */
     protected boolean applyAuto = true;
+
 
     /**
      * Creates a camera with the specified UI features. Use the arrow keys to move and +/(= or -) to zoom in/out.
      * @param applet
      * @param moveSpeed
      * @param zoomAmount
-     * @param mouseWheel
      */
-    public Camera(PApplet applet, float moveSpeed, float zoomAmount, boolean mouseWheel) {
+    public Camera(PApplet applet, float moveSpeed, float zoomAmount) {
         this.applet = applet;
         uiMoveSpeed = moveSpeed;
         uiZoomAmount = zoomAmount;
-        if(mouseWheel) mouseWheel();
+
         screen = new PVector(applet.width, applet.height);
         halfScreen = new PVector(applet.width/2, applet.height/2);
+
+        mwl = new MouseAdapterImpl();
+        applet.addMouseWheelListener(mwl);
+
         kl = new MultiKeyListener();
         applet.addKeyListener(kl);
+
         applet.registerPre(this);
         applet.registerSize(this);
+        
+        scale = 1;
         corner = new PVector();
     }
 
     /**
-     * Creates a camera with a move speed of 15, a zoom amount of 1.03, and the mouse wheel on.
+     * Creates a camera with a move speed of 15 and a zoom amount of 1.03.
      * @param applet
      */
     public Camera(PApplet applet) {
-        this(applet, 15, 1.03f, true);
+        this(applet, 15, 1.03f);
     }
 
+    /**
+     * Called by Processing before the draw() method occurs. This handles the UI movement and applies the camera transform.
+     */
     public void pre() {
-        if(uiAuto) uiHandle();
+        if(ui) uiHandle();
         if(applyAuto) apply();
     }
 
+    /**
+     * Called by Processing when sketch resizes.
+     * @param width
+     * @param height
+     */
     public void size(int width, int height) {
         screen.set(width, height, 0);
         halfScreen.set(width/2, height/2, 0);
@@ -110,9 +152,8 @@ public class Camera implements PConstants {
     /**
      * Zooms in the view, focused at the specified model point. s > 1 means the camera will zoom in, 0 &lt; s &lt; 1 means the camera will zoom out.
      * s &lt; 0 is generally not recommended, as everything will be flipped.
-     * In general, screen(modelPoint) will return the same value regardless of calls to scale(s, modelPoint).
      * @param s
-     * @param center
+     * @param modelPoint
      */
     public void scale(float s, PVector modelPoint) {
         scale *= s;
@@ -144,20 +185,20 @@ public class Camera implements PConstants {
 
     /**
      * Moves the camera view the specified model distance (which means it's affected by the current scale).
-     * @param x
-     * @param y
+     * @param modelX
+     * @param modelY
      */
-    public void translate(float x, float y) {
-        corner.x += modelDist(x);
-        corner.y += modelDist(y);
+    public void translate(float modelX, float modelY) {
+        corner.x += modelDist(modelX);
+        corner.y += modelDist(modelY);
     }
 
     /**
      * Moves the camera view the specified model distance (which means it's affected by the current scale).
-     * @param v
+     * @param model
      */
-    public void translate(PVector v) {
-        translate(v.x, v.y);
+    public void translate(PVector model) {
+        translate(model.x, model.y);
     }
 
     /**
@@ -174,10 +215,10 @@ public class Camera implements PConstants {
     /**
      * Sets the top-left corner of the camera's view to the specified model coordinates.
      * <br><b>setCorner - default = (0, 0)</b>
-     * @param v 
+     * @param model
      */
-    public void setCorner(PVector v) {
-        setCorner(v.x, v.y);
+    public void setCorner(PVector model) {
+        setCorner(model.x, model.y);
     }
 
     /**
@@ -185,9 +226,10 @@ public class Camera implements PConstants {
      * @param modelCenter
      */
     public void setCenter(PVector modelCenter) {
-        PVector halfScreenModel = modelDist(halfScreen);
-//        PApplet.println("Setting camera corner to "+model+" - "+halfScreenModel);
-        setCorner(PVector.sub(modelCenter, halfScreenModel));
+        setScreenToModel(halfScreen, modelCenter);
+//        PVector halfScreenModel = modelDist(halfScreen);
+////        PApplet.println("Setting camera corner to "+model+" - "+halfScreenModel);
+//        setCorner(PVector.sub(modelCenter, halfScreenModel));
     }
 
     /**
@@ -201,16 +243,29 @@ public class Camera implements PConstants {
 
     /**
      * Scales from the center of the screen such that the resultant width of the camera's view is equal to modelWidth.
+     * @param modelWidth
      */
-    public void setWidth(float modelWidth) {
+    public void setViewportWidth(float modelWidth) {
         scale(modelDist(screen.x) / modelWidth);
     }
 
     /**
      * Scales from the center of the screen such that the resultant height of the camera's view is equal to modelHeight.
+     * @param modelHeight
      */
-    public void setHeight(float modelHeight) {
+    public void setViewportHeight(float modelHeight) {
         scale(modelDist(screen.y) / modelHeight);
+    }
+
+    /**
+     * Pans the camera such that the given modelLoc will be "displayed" at the given screenLoc.
+     * @param screenLoc
+     * @param modelLoc
+     */
+    public void setScreenToModel(PVector screenLoc, PVector modelLoc) {
+        PVector screenLocModel = modelDist(screenLoc);
+        
+        setCorner(PVector.sub(modelLoc, screenLocModel));
     }
 
 //    /**
@@ -273,38 +328,84 @@ public class Camera implements PConstants {
         return new Rectangle2D.Float(tl.x, tl.y, br.x-tl.x, br.y-tl.y);
     }
 
-    public float getWidth() {
+    /**
+     * Returns the width, in model coordinates, of the camera's view.
+     * @return
+     */
+    public float getViewportWidth() {
         return modelDist(screen.x);
     }
 
-    public float getHeight() {
+    /**
+     * Returns the height, in model coordinates, of the camera's view.
+     * @return
+     */
+    public float getViewportHeight() {
         return modelDist(screen.y);
     }
-
+    
+    /**
+     * True if the camera is automatically translating the PApplet at the beginning of each frame.
+     * @return
+     */
     public boolean isApplyAuto() {
         return applyAuto;
     }
 
+    /**
+     * True if pressing arrow keys pans the camera.
+     * @return
+     */
     public boolean isUiArrows() {
         return uiArrows;
     }
 
-    public boolean isUiAuto() {
-        return uiAuto;
+    /**
+     * True if Camera should change itself when the user presses sends input. If this value is false, all UI will be
+     * stopped regardless of individual flags such as uiArrows, uiPlusMinus, etc.
+     * @return
+     */
+    public boolean isUi() {
+        return ui;
     }
 
+    /**
+     * True if pressing WASD pans the camera.
+     * @return
+     */
     public boolean isUiWasd() {
         return uiWasd;
     }
 
+    /**
+     * True if pressing (= or +)/- keys zooms the camera.
+     * @return
+     */
     public boolean isUiPlusMinus() {
         return uiPlusMinus;
     }
 
+    /**
+     * True if using the scroll wheel on the mouse zooms the camera.
+     * @return
+     */
+    public boolean isUiScrollWheel() {
+        return uiScrollWheel;
+    }
+
+    /**
+     * Returns the model speed of the Camera. The Camera will translate this many units per frame in the direction(s)
+     * pressed.
+     * @return
+     */
     public float getUiMoveSpeed() {
         return uiMoveSpeed;
     }
 
+    /**
+     * Returns the zoom amount of the Camera. The Camera will scale itself by this ratio each frame.
+     * @return
+     */
     public float getUiZoomAmount() {
         return uiZoomAmount;
     }
@@ -328,39 +429,19 @@ public class Camera implements PConstants {
     }
     
     /**
-     * Tells the camera to respond user inputs, as enabled/disabled by their respective methods.
+     * Tells the camera to respond user inputs, as enabled/disabled by their respective flags.
      * <br><b>auto UI - default = true</b>
      */
-    public void autoUi() {
-        uiAuto = true;
+    public void ui() {
+        ui = true;
     }
     
     /**
      * Tells the camera to ignore all user inputs.
      * <br><b>auto UI - default = true</b>
      */
-    public void noAutoUi() {
-        uiAuto = false;
-    }
-    /**
-     * Tells the camera to respond to mouse wheel scrolls.
-     * <br><b>mouse wheel - default = true</b>
-     * @see noMouseWheel()
-     */
-    public void mouseWheel() {
-        if (mwl == null) {
-            mwl = new MouseAdapterImpl();
-            applet.addMouseWheelListener(mwl);
-        }
-    }
-
-    /**
-     * Tells the camera to ignore mouse wheel scrolling.
-     * <br><b>mouse wheel - default = true</b>
-     * @see mouseWheel()
-     */
-    public void noMouseWheel() {
-        applet.removeMouseWheelListener(mwl);
+    public void noUi() {
+        ui = false;
     }
 
     /**
@@ -397,6 +478,7 @@ public class Camera implements PConstants {
 
     /**
      * Use the +/(= or -) keys to zoom in/out.
+     * <br><b>Use plus/minus - default = true</b>
      */
     public void plusMinus() {
         uiPlusMinus = true;
@@ -404,9 +486,26 @@ public class Camera implements PConstants {
 
     /**
      * Don't use the +/(= or -) keys to zoom.
+     * <br><b>Use plus/minus - default = true</b>
      */
     public void noPlusMinus() {
         uiPlusMinus = false;
+    }
+
+    /**
+     * Use the mouse scroll wheel to zoom.
+     * <br><b>Use scroll wheel - default = true</b>
+     */
+    public void scrollWheel() {
+        uiScrollWheel = true;
+    }
+
+    /**
+     * Don't use the mouse scroll wheel to zoom.
+     * <br><b>Use scroll wheel - default = true</b>
+     */
+    public void noScrollWheel() {
+        uiScrollWheel = false;
     }
 
     /**
@@ -421,6 +520,7 @@ public class Camera implements PConstants {
 
     /**
      * Same as ms.
+     * @param ms
      * @see ms(float).
      */
     public void setMoveSpeed(float ms) { ms(ms); }
@@ -436,14 +536,14 @@ public class Camera implements PConstants {
 
     /**
      * Same as za.
+     * @param za
      * @see za(float).
      */
     public void setZoomAmount(float za) { za(za); }
 
     /**
-     * Call this to actually change the camera state based on which buttons are currently being pressed.
+     * Call this to mutate the camera state based on which buttons are currently being pressed.
      * You may choose to override this method if you want to do other UI stuff.
-     * 
      */
     public void uiHandle() {
         float x = 0, y = 0;
@@ -476,6 +576,9 @@ public class Camera implements PConstants {
                 scale(uiZoomAmount);
             }
         }
+        if(scrollAmount != 0)
+            scale(PApplet.pow(uiZoomAmount, scrollAmount));
+        scrollAmount = 0;
     }
 
     /**
@@ -491,66 +594,18 @@ public class Camera implements PConstants {
         return kl.isPressed(k);
     }
 
-//    /**
-//     * A convenience method for a keyboard controlled scroll/scale UI. Call this in your draw method to
-//     * scroll the camera when the user uses WASD or the arrow keys. Passing false for either of those
-//     * booleans will turn off scrolling for those keys. Pressing
-//     * '-' zooms out by <code>scalePerScroll</code>, while pressing '+' (or '=') scrolls in.
-//     * @param ss speed in pixels to scroll the camera.
-//     * @param scalePerScroll factor to scale by
-//     */
-//    public void scroll(float ss, float za, boolean wasd, boolean arrows) {
-//        float x = 0, y = 0;
-//        if (arrows) {
-//            if (isPressed(KeyEvent.VK_UP))
-//                y++;
-//            if (isPressed(KeyEvent.VK_LEFT))
-//                x++;
-//            if (isPressed(KeyEvent.VK_DOWN))
-//                y--;
-//            if (isPressed(KeyEvent.VK_RIGHT))
-//                x--;
-//        }
-//        if (wasd) {
-//            if (isPressed('w'))
-//                y++;
-//            if (isPressed('a'))
-//                x++;
-//            if (isPressed('s'))
-//                y--;
-//            if (isPressed('d'))
-//                x--;
-//        }
-//        translate(x * ss, y * ss);
-//        if (isPressed('-')) {
-//            scale(1 / za);
-//        }
-//        if (isPressed('=') | isPressed('+')) {
-//            scale(za);
-//        }
-//    }
-//
-//    public void scroll(float ss, float za) {
-//        scroll(ss, za, true, true);
-//    }
-//
-//    public void scroll(float ss, boolean wasd, boolean arrows) {
-//        scroll(ss, scalePerScroll, wasd, arrows);
-//    }
-//
-//    public void scroll(float speed) {
-//        scroll(speed, scalePerScroll);
-//    }
-
-
 //==================================HELPER METHODS, CONVERSION============================
 
+    /**
+     * Returns the PApplet that this Camera is bound to.
+     * @return
+     */
     protected PApplet getApplet() {
         return applet;
     }
     
     /**
-     * Reset the transforms in this camera.
+     * Reset the transforms in this camera. UI flags are not affected.
      */
     public void reset() {
         scale = 1;
@@ -567,10 +622,20 @@ public class Camera implements PConstants {
         return PVector.add(modelDist(screen), corner);
     }
 
+    /**
+     * Convert the given screen X coordinate into model coordinates.
+     * @param screenX
+     * @return
+     */
     public float modelX(float screenX) {
         return corner.x + modelDist(screenX);
     }
 
+    /**
+     * Convert the given screen Y coordinate into model coordinates.
+     * @param screenY
+     * @return
+     */
     public float modelY(float screenY) {
         return corner.y + modelDist(screenY);
     }
@@ -595,7 +660,6 @@ public class Camera implements PConstants {
 
     /**
      * Get the screen coordinates, given a model coordinate.
-     * note: screenLoc = worldLoc * scale. a higher scale means more zoom. scale = scrn / world.
      * @param model
      * @return
      */
@@ -603,10 +667,20 @@ public class Camera implements PConstants {
         return screenDist(PVector.sub(model, corner));
     }
 
+    /**
+     * Convert the given model X coordinate into screen coordinates.
+     * @param modelX
+     * @return
+     */
     public float screenX(float modelX) {
         return screenDist(modelX - corner.x);
     }
 
+    /**
+     * Convert the given model Y coordinate into screen coordinates.
+     * @param modelY
+     * @return
+     */
     public float screenY(float modelY) {
         return screenDist(modelY - corner.y);
     }
@@ -683,22 +757,22 @@ public class Camera implements PConstants {
 //======================BEGIN DEPRECATED=============================
     
     /**
-     * Use mouseWheel() and za(float) instead
+     * Use scrollWheel() and za(float) instead
      * @param f
      * @deprecated
-     * @see mouseWheel(), za(float)
+     * @see scrollWheel(), za(float)
      */
     public void registerScrollWheel(float f) {
-        mouseWheel();
+        scrollWheel();
         za(f);
     }
     
     /**
-     * Use noMouseWheel() instead
+     * Use noScrollWheel() instead
      * @deprecated
      */
     public void unregisterScrollWheel() {
-        noMouseWheel();
+        noScrollWheel();
     }
 
     /**
@@ -719,8 +793,9 @@ public class Camera implements PConstants {
 
         @Override
         public void mouseWheelMoved(MouseWheelEvent e) {
-            if(uiAuto)
-                scale(PApplet.pow(uiZoomAmount, -e.getWheelRotation()));
+//            if(ui)
+//                scale(PApplet.pow(uiZoomAmount, -e.getWheelRotation()));
+            scrollAmount += -e.getWheelRotation(); //todo: watch out for threading issues between this and uiHandle!
         }
     }
 }
