@@ -9,33 +9,14 @@ import com.sun.org.apache.xml.internal.serialize.XMLSerializer;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Graphics2D;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.io.Serializable;
-import java.io.StringWriter;
+import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.*;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import org.jbox2d.collision.AABB;
-import org.jbox2d.collision.Shape;
-import org.jbox2d.common.Vec2;
-import org.jbox2d.dynamics.Body;
-import org.jbox2d.dynamics.World;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 import processing.core.PApplet;
@@ -647,20 +628,20 @@ public class Methods {
         return new PVector(random(min.x, max.x), random(min.y, max.y), random(min.z, max.z));
     }
 
-    /**
-     * Creates a random PVector within the box described by min on one end and max on the other.
-     * @param min lower bound for values
-     * @param max upper bound for values
-     * @return
-     */
-    public static Vec2 random(Vec2 min, Vec2 max) {
-        return new Vec2(random(min.x, max.x), random(min.y, max.y));
-    }
-
-    public static Vec2 randomVec2(World w) {
-        AABB bounds = w.getWorldAABB();
-        return random(bounds.lowerBound, bounds.upperBound);
-    }
+//    /**
+//     * Creates a random PVector within the box described by min on one end and max on the other.
+//     * @param min lower bound for values
+//     * @param max upper bound for values
+//     * @return
+//     */
+//    public static Vec2 random(Vec2 min, Vec2 max) {
+//        return new Vec2(random(min.x, max.x), random(min.y, max.y));
+//    }
+//
+//    public static Vec2 randomVec2(World w) {
+//        AABB bounds = w.getWorldAABB();
+//        return random(bounds.lowerBound, bounds.upperBound);
+//    }
 
     /**
      * Returns a new PVector having the same angle as <code>pVector</code>, of magnitude 1.
@@ -930,7 +911,7 @@ public class Methods {
      * @param ostop upper bound of output range
      * @return the corresponding number of <code>value</code> in the output range.
      */
-    public static final double map(double value, double istart, double istop, double ostart, double ostop) {
+    public static double map(double value, double istart, double istop, double ostart, double ostop) {
         return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
     }
 
@@ -944,7 +925,7 @@ public class Methods {
      * @param ostop upper bound of output range
      * @return the corresponding number of <code>value</code> in the output range.
      */
-    public static final float map(float value, float istart, float istop, float ostart, float ostop) {
+    public static float map(float value, float istart, float istop, float ostart, float ostop) {
         return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
     }
 
@@ -958,7 +939,7 @@ public class Methods {
      * @param ostop upper bound of output range
      * @return the corresponding number of <code>value</code> in the output range.
      */
-    public static final int map(int value, int istart, int istop, int ostart, int ostop) {
+    public static int map(int value, int istart, int istop, int ostart, int ostop) {
         return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
     }
 
@@ -1098,67 +1079,67 @@ public class Methods {
     public static void strokeWeightModel(PApplet applet, float modelWeight, Camera c) {
         strokeWeightScreen(applet, modelWeight, c.scale);
     }
-
-    /**
-     * Returns a Vec2 with the same x and y coordinates as the given PVector.
-     * @param pv
-     * @return
-     */
-    public static Vec2 pVector2Vec2(PVector pv) {
-        return new Vec2(pv.x, pv.y);
-    }
-
-    /**
-     * Returns a PVector with the same x/y coordinates as the given Vec2, and a z coordinate of zero.
-     */
-    public static PVector vec22PVector(Vec2 v2) {
-        return new PVector(v2.x, v2.y);
-    }
-
-    public static Iterator<Body> bodyIterator(final World w) {
-        return new Iterator<Body>() {
-
-            Body next = w.getBodyList(); //The next call to "next()" will return this body.
-            Body last = null;
-
-            public boolean hasNext() {
-                return next != null;
-            }
-
-            public Body next() {
-                last = next;
-                next = next.getNext();
-
-                return last;
-            }
-
-            public void remove() {
-                w.destroyBody(last);
-            }
-        };
-    }
-
-    public static Iterator<Shape> shapeIterator(final Body b) {
-        return new Iterator<Shape>() {
-
-            Shape next = b.getShapeList(), last = null;
-
-            public boolean hasNext() {
-                return next != null;
-            }
-
-            public Shape next() {
-                last = next;
-                next = next.getNext();
-
-                return last;
-            }
-
-            public void remove() {
-                b.destroyShape(last);
-            }
-        };
-    }
+//
+//    /**
+//     * Returns a Vec2 with the same x and y coordinates as the given PVector.
+//     * @param pv
+//     * @return
+//     */
+//    public static Vec2 pVector2Vec2(PVector pv) {
+//        return new Vec2(pv.x, pv.y);
+//    }
+//
+//    /**
+//     * Returns a PVector with the same x/y coordinates as the given Vec2, and a z coordinate of zero.
+//     */
+//    public static PVector vec22PVector(Vec2 v2) {
+//        return new PVector(v2.x, v2.y);
+//    }
+//
+//    public static Iterator<Body> bodyIterator(final World w) {
+//        return new Iterator<Body>() {
+//
+//            Body next = w.getBodyList(); //The next call to "next()" will return this body.
+//            Body last = null;
+//
+//            public boolean hasNext() {
+//                return next != null;
+//            }
+//
+//            public Body next() {
+//                last = next;
+//                next = next.getNext();
+//
+//                return last;
+//            }
+//
+//            public void remove() {
+//                w.destroyBody(last);
+//            }
+//        };
+//    }
+//
+//    public static Iterator<Shape> shapeIterator(final Body b) {
+//        return new Iterator<Shape>() {
+//
+//            Shape next = b.getShapeList(), last = null;
+//
+//            public boolean hasNext() {
+//                return next != null;
+//            }
+//
+//            public Shape next() {
+//                last = next;
+//                next = next.getNext();
+//
+//                return last;
+//            }
+//
+//            public void remove() {
+//                b.destroyShape(last);
+//            }
+//        };
+//    }
 
     public static float getTranslateX(PApplet p) {
         return (float) getGraphics2D(p).getTransform().getTranslateX();
@@ -1188,34 +1169,34 @@ public class Methods {
         return ((PGraphicsJava2D)g).g2;
     }
 
-    public static float getAngle(Vec2 dir) {
-        return (float) Math.atan2(dir.y, dir.x);
-    }
-
-    public static boolean isZero(Vec2 dir) {
-        return dir.x == 0 && dir.y == 0;
-    }
-
-    public static long checkSum(World w) {
-        long sum = 2;
-        for(Body b = w.getBodyList(); b != null; b = b.getNext()) {
-            final long cs1 = (long) checkSumHelper(b.getAngle(), b.getAngularVelocity());
-            final long cs2 = (long) checkSumHelper(b.getPosition().x, b.getPosition().y);
-            final long cs3 = (long) checkSumHelper(b.getLinearVelocity().x, b.getLinearVelocity().y);
-            sum = sum * 13 + (cs1 << 24)
-                           + (cs2 << 12)
-                           + cs3;
-        }
-        return sum;
-    }
-
-    public static String vec2ToString(Vec2 v) {
-        return v.x+" "+v.y;
-    }
-    public static Vec2 stringToVec2(String s) {
-        String elms[] = s.split(" ");
-        return new Vec2(Float.parseFloat(elms[0]), Float.parseFloat(elms[1]));
-    }
+//    public static float getAngle(Vec2 dir) {
+//        return (float) Math.atan2(dir.y, dir.x);
+//    }
+//
+//    public static boolean isZero(Vec2 dir) {
+//        return dir.x == 0 && dir.y == 0;
+//    }
+//
+//    public static long checkSum(World w) {
+//        long sum = 2;
+//        for(Body b = w.getBodyList(); b != null; b = b.getNext()) {
+//            final long cs1 = (long) checkSumHelper(b.getAngle(), b.getAngularVelocity());
+//            final long cs2 = (long) checkSumHelper(b.getPosition().x, b.getPosition().y);
+//            final long cs3 = (long) checkSumHelper(b.getLinearVelocity().x, b.getLinearVelocity().y);
+//            sum = sum * 13 + (cs1 << 24)
+//                           + (cs2 << 12)
+//                           + cs3;
+//        }
+//        return sum;
+//    }
+//
+//    public static String vec2ToString(Vec2 v) {
+//        return v.x+" "+v.y;
+//    }
+//    public static Vec2 stringToVec2(String s) {
+//        String elms[] = s.split(" ");
+//        return new Vec2(Float.parseFloat(elms[0]), Float.parseFloat(elms[1]));
+//    }
 
     public static int checkSumHelper(float a, float b) {
         return Float.floatToIntBits(a) ^ Float.floatToIntBits(b);
